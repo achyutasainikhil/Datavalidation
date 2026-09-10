@@ -1,13 +1,1 @@
--- ====================================================================
--- Snowflake Consumer Readability & Latency Test
--- ====================================================================
--- 1. Test Shared Key Ring Entity Connectivity
-SELECT TOP 10 * 
-FROM shared_fabric_db.shared_schema.key_ring_entity;
 
--- 2. Test Data Freshness & Shared Volume
-SELECT 
-    CURRENT_TIMESTAMP() AS query_execution_time,
-    COUNT(*) AS total_shared_entities,
-    MAX(created_at) AS latest_shared_record
-FROM shared_fabric_db.shared_schema.key_ring_entity;
