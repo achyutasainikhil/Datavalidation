@@ -1,0 +1,27 @@
+-- ====================================================================
+-- Snowflake DR Baseline Query
+-- ====================================================================
+SELECT 
+    'MDM_INDIVIDUAL_DIM_WH' AS table_name,
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT CURRENT_MDM_INDIVIDUAL_ID) AS distinct_keys,
+    MAX(ETL_UPDATE_TIMESTAMP) AS latest_rpo_timestamp
+FROM CDWP_DB_PROD.USER_DATAPRODUCTS.MDM_INDIVIDUAL_DIM_WH
+
+UNION ALL
+
+SELECT 
+    'APPLICATION_POLICY_INDIVIDUAL_DIM_WH' AS table_name,
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT APPLICATION_POLICY_INDIVIDUAL_KEY) AS distinct_keys,
+    MAX(ETL_UPDATE_TIMESTAMP) AS latest_rpo_timestamp
+FROM CDWP_DB_PROD.USER_DATAPRODUCTS.APPLICATION_POLICY_INDIVIDUAL_DIM_WH
+
+UNION ALL
+
+SELECT 
+    'APPLICATION_POLICY_FACT_WH' AS table_name,
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT APPLICATION_NUMBER) AS distinct_keys,
+    MAX(ETL_UPDATE_TIMESTAMP) AS latest_rpo_timestamp
+FROM CDWP_DB_PROD.USER_DATAPRODUCTS.APPLICATION_POLICY_FACT_WH;
