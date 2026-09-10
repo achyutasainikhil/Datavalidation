@@ -42,39 +42,14 @@ Fabric → Snowflake,Fabric (lh_Silver),[dbo].[key_ring_identifier],Snowflake (C
 3. Enterprise Data Quality (DQ) Rule Matrix
 During DR recovery, all validation scripts enforce the seven core dimensions of enterprise data quality across both reload and sharing paths:
 
-DQ Dimension
-Target Rule & Assertion
-Validation Logic
-Acceptance Threshold
-Completeness
-Zero missing records; zero unexpected NULLs in mandatory primary keys.
-COUNT(*), COUNT(col) WHERE col IS NULL
-Exact $0\%$ variance
-Uniqueness
-Primary/Composite keys must remain strictly unique; zero duplicate rows allowed.
-COUNT(pk) - COUNT(DISTINCT pk)
-Exact $0$ duplicates
-Accuracy / Fidelity
-Hash totals and distinct entity counts must match source metrics precisely.
-COUNT(DISTINCT entity_id), BITXOR_AGG(HASH(*))
-Exact $0\%$ variance
-Timeliness
-Data freshness must satisfy the Recovery Point Objective (RPO $\le 1$ hr).
-MAX(ETL_UPDATE_TIMESTAMP) >= Cutoff
-Data within $\le 1$ hr of DR event
-Validity
-Attributes must adhere to domain rules and active record flags.
-COUNT(*) WHERE RECORD_ACTIVE_FLAG = 'Y'
-$0$ invalid code records
-Consistency
-Column data types, ordinal positions, and schema precision must match.
-System metadata catalog comparison
-$0$ schema drift errors
-Integrity
-Foreign key entity links between dimension and fact tables must remain intact.
-LEFT JOIN orphan detection queries
-$0$ orphan records
-
+DQ Dimension	Target Rule & Assertion	Validation Logic	Acceptance Threshold
+Completeness	Zero missing records; zero unexpected NULLs in mandatory primary keys.	COUNT(*), COUNT(col) WHERE col IS NULL	Exact 0% variance
+Uniqueness	Primary/Composite keys must remain strictly unique; zero duplicate rows allowed.	COUNT(pk) - COUNT(DISTINCT pk)	Exact 0 duplicates
+Accuracy / Fidelity	Hash totals and distinct entity counts must match source metrics precisely.	COUNT(DISTINCT entity_id), BITXOR_AGG(HASH(*))	Exact 0% variance
+Timeliness	Data freshness must satisfy the Recovery Point Objective (RPO ≤1 hr).	MAX(ETL_UPDATE_TIMESTAMP) >= Cutoff	Data within ≤1 hr of DR event
+Validity	Attributes must adhere to domain rules and active record flags.	COUNT(*) WHERE RECORD_ACTIVE_FLAG = 'Y'	0 invalid code records
+Consistency	Column data types, ordinal positions, and schema precision must match.	System metadata catalog comparison	0 schema drift errors
+Integrity	Foreign key entity links between dimension and fact tables must remain intact.	LEFT JOIN orphan detection queries	0 orphan records
 4. Standard Validation Procedures
 A. Reload Validation Procedure (Snowflake $\rightarrow$ Fabric)
 Pre-Validation Baseline: Execute Snowflake SQL verification queries on CDWP_DB_PROD to extract total record counts, distinct key totals, and max update timestamps.
