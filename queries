@@ -1,24 +1,44 @@
--- ====================================================================
--- Fabric Bronze Target Verification
--- ====================================================================
-SELECT 
-    'MDM_INDIVIDUAL_DIM_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT CURRENT_MDM_INDIVIDUAL_ID) AS distinct_keys
-FROM [lh_Bronze].[cdwp].[USER_DATAPRODUCTS_MDM_INDIVIDUAL_DIM_WH]
+# ====================================================================
+# PySpark Automated DR Reconciliation Engine
+# ====================================================================
+from pyspark.sql.functions import col, count
 
-UNION ALL
+# 1. Configure Snowflake Connection Parameters
+sf_options = {
+    "sfUrl": "account.snowflakecomputing.com",
+    "sfUser": dbutils.secrets.get(scope="key-vault-scope", key="snowflake-user"),
+    "sfPassword": dbutils.secrets.get(scope="key-vault-scope", key="snowflake-password"),
+    "sfDatabase": "CDWP_DB_PROD",
+    "sfSchema": "USER_DATAPRODUCTS",
+    "sfWarehouse": "COMPUTE_WH"
+}
 
-SELECT 
-    'APPLICATION_POLICY_INDIVIDUAL_DIM_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT APPLICATION_POLICY_INDIVIDUAL_KEY) AS distinct_keys
-FROM [lh_Bronze].[cdwp].[USER_DATAPRODUCTS_APPLICATION_POLICY_INDIVIDUAL_DIM_WH]
+tables_to_validate = [
+    ("MDM_INDIVIDUAL_DIM_WH", "USER_DATAPRODUCTS_MDM_INDIVIDUAL_DIM_WH"),
+    ("APPLICATION_POLICY_INDIVIDUAL_DIM_WH", "USER_DATAPRODUCTS_APPLICATION_POLICY_INDIVIDUAL_DIM_WH"),
+    ("APPLICATION_POLICY_FACT_WH", "USER_DATAPRODUCTS_APPLICATION_POLICY_FACT_WH")
+]
 
-UNION ALL
+print("--- STARTING AUTOMATED DR RECONCILIATION ---")
 
-SELECT 
-    'APPLICATION_POLICY_FACT_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT APPLICATION_NUMBER) AS distinct_keys
-FROM [lh_Bronze].[cdwp].[USER_DATAPRODUCTS_APPLICATION_POLICY_FACT_WH];
+for sf_table, fabric_table in tables_to_validate:
+    # Read Snowflake Source
+    df_sf = spark.read \
+        .format("net.snowflake.spark.snowflake") \
+        .options(**sf_options) \
+        .option("dbtable", sf_table) \
+        .load()
+    
+    # Read Fabric Target
+    df_fabric = spark.read.table(f"lh_Bronze.cdwp.{fabric_table}")
+    
+    sf_cnt = df_sf.count()
+    fabric_cnt = df_fabric.count()
+    diff = sf_cnt - fabric_cnt
+    
+    status = "PASSED" if diff == 0 else "FAILED"
+    print(f"[{status}] Table: {sf_table} | SF Count: {sf_cnt} | Fabric Count: {fabric_cnt} | Variance: {diff}")
+    
+    assert diff == 0, f"DR CRITICAL FAILURE: Row count mismatch in {sf_table}! Discrepancy: {diff}"
+
+print("--- ALL DR TABLE PARITY CHECKS COMPLETED SUCCESSFULLY ---")
