@@ -1,1 +1,1 @@
- automated data quality and reconciliation scripts across the Fabric Medallion layers (Source $\rightarrow$ lh_Bronze $\rightarrow$ lh_Silver),So that we guarantee 100% row count parity, zero duplicate entities, and exact business rule enforcement prior to downstream consumption.
+
