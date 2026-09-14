@@ -1,24 +1,52 @@
-SELECT 
-    'MDM_INDIVIDUAL_DIM_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT INDIVIDUAL_ROW_HKEY) AS distinct_keys,
-    MAX(RECORD_BEGIN_DATE) AS latest_rpo_timestamp
-FROM [lh_bronze].[cdwp].[USER_DATAPRODUCTS__MDM_INDIVIDUAL_DIM_WH]
+from pyspark.sql.functions import col, count, countDistinct, max
 
-UNION ALL
+print("==========================================================================")
+print("             STARTING AUTOMATED DR RECONCILIATION SUITE                   ")
+print("==========================================================================\n")
 
-SELECT 
-    'APPLICATION_POLICY_INDIVIDUAL_DIM_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT APPLICATION_POLICY_INDIVIDUAL_ROLE_ROW_HKEY) AS distinct_keys,
-    MAX(ETL_BEGIN_TS) AS latest_rpo_timestamp
-FROM [lh_bronze].[cdwp].[USER_DATAPRODUCTS__APPLICATION_POLICY_INDIVIDUAL_DIM_WH]
+# Define baseline source counts from Snowflake for automated assertion checks
+snowflake_baselines = {
+    "MDM_INDIVIDUAL_DIM_WH": {"expected_rows": 532055361},
+    "APPLICATION_POLICY_INDIVIDUAL_DIM_WH": {"expected_rows": 66634168},
+    "APPLICATION_POLICY_FACT_WH": {"expected_rows": 59032970}
+}
 
-UNION ALL
+# Table mapping registry (Name, Lakehouse Table Path, Primary Hash Key, Timestamp Column)
+target_tables = [
+    ("MDM_INDIVIDUAL_DIM_WH", "lh_bronze.cdwp.USER_DATAPRODUCTS__MDM_INDIVIDUAL_DIM_WH", "INDIVIDUAL_ROW_HKEY", "RECORD_BEGIN_DATE"),
+    ("APPLICATION_POLICY_INDIVIDUAL_DIM_WH", "lh_bronze.cdwp.USER_DATAPRODUCTS__APPLICATION_POLICY_INDIVIDUAL_DIM_WH", "APPLICATION_POLICY_INDIVIDUAL_ROLE_ROW_HKEY", "ETL_BEGIN_TS"),
+    ("APPLICATION_POLICY_FACT_WH", "lh_bronze.cdwp.USER_DATAPRODUCTS__APPLICATION_POLICY_FACT_WH", "APPLICATION_KEY_HKEY", "ETL_BEGIN_TS")
+]
 
-SELECT 
-    'APPLICATION_POLICY_FACT_WH' AS table_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT APPLICATION_KEY_HKEY) AS distinct_keys,
-    MAX(ETL_BEGIN_TS) AS latest_rpo_timestamp
-FROM [lh_bronze].[cdwp].[USER_DATAPRODUCTS__APPLICATION_POLICY_FACT_WH];
+# Run automated validation loop
+for table_name, table_path, key_col, ts_col in target_tables:
+    print(f"Checking Target: {table_name}...")
+    
+    # Read Delta table from Lakehouse
+    df = spark.read.table(table_path)
+    
+    # Calculate target metrics
+    target_rows = df.count()
+    distinct_keys = df.select(key_col).distinct().count()
+    latest_rpo = df.select(max(col(ts_col))).collect()[0][0]
+    
+    # Calculate baseline variance
+    expected_rows = snowflake_baselines[table_name]["expected_rows"]
+    row_delta = target_rows - expected_rows
+    variance_pct = round((row_delta / expected_rows) * 100, 2)
+    
+    print(f"  - Target Row Count:     {target_rows:,}")
+    print(f"  - Baseline Row Count:   {expected_rows:,}")
+    print(f"  - Variance:             {row_delta:,} ({variance_pct}%)")
+    print(f"  - Distinct Keys:        {distinct_keys:,}")
+    print(f"  - Latest RPO Timestamp: {latest_rpo}")
+    
+    # Pipeline assertion check (Threshold: 0% variance)
+    if row_delta != 0:
+        print(f"  [WARNING]: Row parity assertion failed for {table_name}! Delta detected.\n")
+    else:
+        print(f"  [SUCCESS]: 100% Row parity confirmed for {table_name}.\n")
+
+print("==========================================================================")
+print("                     RECONCILIATION RUN COMPLETE                          ")
+print("==========================================================================")
