@@ -1,17 +1,5 @@
-SELECT 
-    'shared_key_ring_entity' AS object_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT KEY_RING_HKEY) AS distinct_keys,
-    MAX(ETL_BEGIN_TS) AS latest_rpo_timestamp,
-    DATEDIFF('minute', MAX(ETL_BEGIN_TS), CURRENT_TIMESTAMP()) AS latency_minutes
-FROM CDWP_DB_PROD.USER_DATAPRODUCTS.SHARED_KEY_RING_ENTITY
+-- 1. Search for key-ring views across the CDWP_DB_PROD database
+SHOW VIEWS LIKE '%KEY_RING%' IN DATABASE CDWP_DB_PROD;
 
-UNION ALL
-
-SELECT 
-    'shared_key_ring_identifier' AS object_name,
-    COUNT(*) AS total_rows,
-    COUNT(DISTINCT KEY_RING_IDENTIFIER_HKEY) AS distinct_keys,
-    MAX(ETL_BEGIN_TS) AS latest_rpo_timestamp,
-    DATEDIFF('minute', MAX(ETL_BEGIN_TS), CURRENT_TIMESTAMP()) AS latency_minutes
-FROM CDWP_DB_PROD.USER_DATAPRODUCTS.SHARED_KEY_RING_IDENTIFIER;
+-- 2. Search for key-ring tables if created as physical/external tables
+SHOW TABLES LIKE '%KEY_RING%' IN DATABASE CDWP_DB_PROD;
