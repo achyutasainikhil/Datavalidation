@@ -1,1 +1,93 @@
+from pyspark.sql.functions import col, count, countDistinct, max
 
+print("==========================================================================")
+print("       STARTING DYNAMIC SNOWFLAKE-TO-FABRIC LIVE RECONCILIATION SUITE      ")
+print("==========================================================================\n")
+
+# 1. Configure Snowflake Connection Details
+# Note: Use Key Vault secrets (mssparkutils.credentials.getSecret) in production
+snowflake_options = {
+    "sfUrl": "your_account.snowflakecomputing.com",
+    "sfUser": mssparkutils.credentials.getSecret("kv-scope", "snowflake-user"),
+    "sfPassword": mssparkutils.credentials.getSecret("kv-scope", "snowflake-password"),
+    "sfDatabase": "CDWP_DB_PROD",
+    "sfSchema": "USER_DATAPRODUCTS",
+    "sfWarehouse": "DATAPRODUCTS_WH",
+    "sfRole": "ACCOUNTADMIN"
+}
+
+# 2. Table Reconciliation Registry
+reconciliation_registry = [
+    {
+        "table_name": "MDM_INDIVIDUAL_DIM_WH",
+        "sf_table": "MDM_INDIVIDUAL_DIM_WH",
+        "fabric_table": "lh_bronze.cdwp.USER_DATAPRODUCTS__MDM_INDIVIDUAL_DIM_WH",
+        "key_col": "INDIVIDUAL_ROW_HKEY",
+        "ts_col": "RECORD_BEGIN_DATE"
+    },
+    {
+        "table_name": "APPLICATION_POLICY_INDIVIDUAL_DIM_WH",
+        "sf_table": "APPLICATION_POLICY_IND_DIM_WH",
+        "fabric_table": "lh_bronze.cdwp.USER_DATAPRODUCTS__APPLICATION_POLICY_INDIVIDUAL_DIM_WH",
+        "key_col": "APPLICATION_POLICY_INDIVIDUAL_ROLE_ROW_HKEY",
+        "ts_col": "ETL_BEGIN_TS"
+    },
+    {
+        "table_name": "APPLICATION_POLICY_FACT_WH",
+        "sf_table": "APPLICATION_POLICY_FACT_WH",
+        "fabric_table": "lh_bronze.cdwp.USER_DATAPRODUCTS__APPLICATION_POLICY_FACT_WH",
+        "key_col": "APPLICATION_KEY_HKEY",
+        "ts_col": "ETL_BEGIN_TS"
+    }
+]
+
+# 3. Dynamic Source-to-Target Reconciliation Loop
+for target in reconciliation_registry:
+    table = target["table_name"]
+    print(f"Reconciling Object: [{table}]...")
+    
+    # Read Live Source Data from Snowflake
+    df_src = (
+        spark.read
+        .format("snowflake")
+        .options(**snowflake_options)
+        .option("dbtable", target["sf_table"])
+        .load()
+    )
+    
+    # Read Target Data from Fabric Lakehouse
+    df_tgt = spark.read.table(target["fabric_table"])
+    
+    # Calculate Source (Snowflake) Metrics
+    src_rows = df_src.count()
+    src_keys = df_src.select(target["key_col"]).distinct().count()
+    src_max_ts = df_src.select(max(col(target["ts_col"]))).collect()[0][0]
+    
+    # Calculate Target (Fabric Bronze) Metrics
+    tgt_rows = df_tgt.count()
+    tgt_keys = df_tgt.select(target["key_col"]).distinct().count()
+    tgt_max_ts = df_tgt.select(max(col(target["ts_col"]))).collect()[0][0]
+    
+    # Calculate Variances
+    row_delta = tgt_rows - src_rows
+    variance_pct = round((row_delta / src_rows) * 100, 4) if src_rows > 0 else 0.0
+    key_delta = tgt_keys - src_keys
+    
+    # Display Reconciliation Summary
+    print(f"  - Source (Snowflake) Rows:  {src_rows:,}")
+    print(f"  - Target (Fabric) Rows:     {tgt_rows:,}")
+    print(f"  - Row Delta / Variance:     {row_delta:,} ({variance_pct}%)")
+    print(f"  - Source Distinct Keys:     {src_keys:,}")
+    print(f"  - Target Distinct Keys:     {tgt_keys:,}")
+    print(f"  - Source Max Timestamp:     {src_max_ts}")
+    print(f"  - Target Max Timestamp:     {tgt_max_ts}")
+    
+    # Pipeline Assertions
+    if row_delta == 0 and key_delta == 0:
+        print(f"  [STATUS: PASS] 100% Source-to-Target Parity Confirmed.\n")
+    else:
+        print(f"  [STATUS: FAIL] Reconciliation Discrepancy Detected! (Row Delta: {row_delta:,}, Key Delta: {key_delta:,})\n")
+
+print("==========================================================================")
+print("                   LIVE RECONCILIATION RUN COMPLETE                       ")
+print("==========================================================================")
