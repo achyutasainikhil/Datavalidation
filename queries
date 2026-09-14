@@ -1,5 +1,1 @@
--- 1. Search for key-ring views across the CDWP_DB_PROD database
-SHOW VIEWS LIKE '%KEY_RING%' IN DATABASE CDWP_DB_PROD;
 
--- 2. Search for key-ring tables if created as physical/external tables
-SHOW TABLES LIKE '%KEY_RING%' IN DATABASE CDWP_DB_PROD;
