@@ -1,5 +1,712 @@
-SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'mpi_bronze'
-  AND TABLE_NAME = 'rtmi_individual'   -- repeat for each table
-ORDER BY ORDINAL_POSITION;
+# ==============================================================================
+# Open Data Contract Standard (ODCS) v3.1.0
+# RTMI Individual - Silver Layer Data Contract  (DRAFT, PBI 3586168)
+# Source: Fabric Lakehouse lh_bronze.mpi_bronze (RTMI loads) -> Target: lh_silver dbo
+#
+# ASSUMPTIONS TO CONFIRM BEFORE MERGE (search for "TODO"):
+#   - Silver table names and column names match the bronze names below
+#   - Which RTMI table is the silver source (rtmi_individual vs rtmi_consumer)
+#   - Bronze columns checked against Fabric INFORMATION_SCHEMA screenshots (10/20/2026):
+#     41 business/audit columns on rtmi_consumer, rtmi_individual_delta and
+#     rtmi_individual_historical; rtmi_individual_stream adds StartDate and EndDate (43).
+#     rtmi_tracking has 6 columns. Every bronze column is nullable, hence the NULL guards.
+#     Bronze types: string columns show as varchar(8000), timestamps as datetime2.
+# Scope: hard rules only (completeness, uniqueness, ranges, formats, FK).
+#        Identity-resolution business rules are out of scope (tracked separately).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. FUNDAMENTALS
+# ------------------------------------------------------------------------------
+apiVersion: v3.1.0
+kind: DataContract
+
+id: dc-rtmi-individual
+name: "RTMI Individual - Silver Layer Data Contract"
+version: 1.0.0
+status: draft
+domain: insurance
+dataProduct: rtmi-individual
+tenant: TruStage
+
+# TODO: add authoritativeDefinitions url once the file path in the repo is final
+
+description:
+  purpose: Provide cleansed RTMI individual (member) records and member number change tracking for the Silver layer.
+  limitations: Only includes RTMI file loads. Iris data is covered by a separate contract. Identity resolution is not performed here.
+  usage: Used as a source for the Party Domain and the consumer key ring in the Silver layer.
+
+# ------------------------------------------------------------------------------
+# 2. SCHEMA
+# ------------------------------------------------------------------------------
+schema:
+  - id: rtmi_individual_obj
+    name: rtmi_individual
+    catalog: lh_silver
+    schema: dbo
+    physicalName: rtmi_individual
+    physicalType: table
+    businessName: RTMI Individual
+    description: RTMI individual records loaded from RTMI files
+    dataGranularityDescription: One row per RTMI member number per validity period (StartDate to EndDate)   # TODO confirm
+
+    properties:
+      - id: rtmi_member_number_prop
+        name: RTMI_MEMBER_NUMBER
+        primaryKey: true
+        primaryKeyPosition: 1
+        logicalType: integer
+        physicalType: bigint
+        description: RTMI member number identifying the individual. Required.
+        classification: restricted
+
+      - id: delta_type_prop
+        name: DELTA_TYPE
+        logicalType: string
+        physicalType: string
+        description: Change type flag supplied by the RTMI delta feed.
+        classification: internal
+
+      - id: last_name_prop
+        name: LAST_NAME
+        logicalType: string
+        physicalType: string
+        description: Last name.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: first_name_prop
+        name: FIRST_NAME
+        logicalType: string
+        physicalType: string
+        description: First name.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: middle_name_prop
+        name: MIDDLE_NAME
+        logicalType: string
+        physicalType: string
+        description: Middle name.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: generation_prop
+        name: GENERATION
+        logicalType: string
+        physicalType: string
+        description: Generation indicator such as Jr or Sr.
+
+      - id: suffix_name_prop
+        name: SUFFIX_NAME
+        logicalType: string
+        physicalType: string
+        description: Name suffix.
+
+      - id: date_of_birth_prop
+        name: DATE_OF_BIRTH
+        logicalType: date
+        physicalType: date
+        description: Date of birth.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: dob_source_indicator_prop
+        name: DOB_SOURCE_INDICATOR
+        logicalType: string
+        physicalType: string
+        description: Indicator of where the date of birth came from.
+
+      - id: ssn_token_prop
+        name: SSN_TOKEN
+        logicalType: string
+        physicalType: string
+        description: Tokenized SSN. Never contains a raw SSN.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: tokenized
+
+      - id: gender_prop
+        name: GENDER
+        logicalType: string
+        physicalType: string
+        description: Gender code.
+        classification: restricted
+
+      - id: marital_status_prop
+        name: MARITAL_STATUS
+        logicalType: string
+        physicalType: string
+        description: Marital status code.
+
+      - id: deceased_indicator_prop
+        name: DECEASED_INDICATOR
+        logicalType: string
+        physicalType: string
+        description: Deceased flag.
+
+      - id: date_of_death_prop
+        name: DATE_OF_DEATH
+        logicalType: date
+        physicalType: date
+        description: Date of death.
+        classification: restricted
+
+      - id: address_line_1_prop
+        name: ADDRESS_LINE_1
+        logicalType: string
+        physicalType: string
+        description: Address line 1.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: address_line_2_prop
+        name: ADDRESS_LINE_2
+        logicalType: string
+        physicalType: string
+        description: Address line 2.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: address_line_3_prop
+        name: ADDRESS_LINE_3
+        logicalType: string
+        physicalType: string
+        description: Address line 3.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: city_prop
+        name: CITY
+        logicalType: string
+        physicalType: string
+        description: City.
+
+      - id: county_prop
+        name: COUNTY
+        logicalType: string
+        physicalType: string
+        description: County.
+
+      - id: state_prop
+        name: STATE
+        logicalType: string
+        physicalType: string
+        description: State code.
+
+      - id: zip_code_prop
+        name: ZIP_CODE
+        logicalType: string
+        physicalType: string
+        description: ZIP code.
+        classification: restricted
+
+      - id: address_cleansed_flag_prop
+        name: ADDRESS_CLEANSED_FLAG
+        logicalType: string
+        physicalType: string
+        description: Flag showing the address was cleansed.
+
+      - id: address_deliverable_flag_prop
+        name: ADDRESS_DELIVERABLE_FLAG
+        logicalType: string
+        physicalType: string
+        description: Flag showing the address is deliverable.
+
+      - id: address_type_prop
+        name: ADDRESS_TYPE
+        logicalType: string
+        physicalType: string
+        description: Address type code.
+
+      - id: latitude_prop
+        name: LATITUDE
+        logicalType: string
+        physicalType: string
+        description: Latitude stored as text. Must convert to a number between -90 and 90 when present.
+        classification: restricted
+
+      - id: longitude_prop
+        name: LONGITUDE
+        logicalType: string
+        physicalType: string
+        description: Longitude stored as text. Must convert to a number between -180 and 180 when present.
+        classification: restricted
+
+      - id: home_telephone_number_prop
+        name: HOME_TELEPHONE_NUMBER
+        logicalType: string
+        physicalType: string
+        description: Home telephone number.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: business_telephone_number_prop
+        name: BUSINESS_TELEPHONE_NUMBER
+        logicalType: string
+        physicalType: string
+        description: Business telephone number.
+        classification: restricted
+        customProperties:
+          - property: pii
+            value: true
+
+      - id: ncoa_action_prop
+        name: NCOA_ACTION
+        logicalType: string
+        physicalType: string
+        description: National Change of Address action code.
+
+      - id: ncoa_delivery_prop
+        name: NCOA_DELIVERY
+        logicalType: string
+        physicalType: string
+        description: National Change of Address delivery code.
+
+      - id: ncoa_move_type_prop
+        name: NCOA_MOVE_TYPE
+        logicalType: string
+        physicalType: string
+        description: National Change of Address move type.
+
+      - id: wealth_code_prop
+        name: WEALTH_CODE
+        logicalType: string
+        physicalType: string
+        description: Wealth code supplied by RTMI.
+
+      - id: rtmi_household_number_prop
+        name: RTMI_HOUSEHOLD_NUMBER
+        logicalType: string
+        physicalType: string
+        description: RTMI household number.
+
+      - id: opt_out_date_prop
+        name: OPT_OUT_DATE
+        logicalType: date
+        physicalType: date
+        description: Date the individual opted out.
+
+      - id: opt_out_reason_prop
+        name: OPT_OUT_REASON
+        logicalType: string
+        physicalType: string
+        description: Reason for opt out.
+
+      - id: origin_timestamp_prop
+        name: ORIGIN_TIMESTAMP
+        logicalType: timestamp
+        physicalType: timestamp
+        description: Timestamp from the RTMI source system.
+
+      - id: address_validation_date_prop
+        name: ADDRESS_VALIDATION_DATE
+        logicalType: date
+        physicalType: date
+        description: Date the address was last validated.
+
+      - id: acquisition_date_prop
+        name: ACQUISITION_DATE
+        logicalType: date
+        physicalType: date
+        description: Date the record was acquired.
+
+      - id: file_date_prop
+        name: File_Date
+        logicalType: string
+        physicalType: string
+        description: Business date of the source file. Required.
+
+      - id: ingested_time_prop
+        name: IngestedTime
+        logicalType: timestamp
+        physicalType: timestamp
+        description: Time the file row was ingested. Required.
+
+      - id: file_name_prop
+        name: FileName
+        logicalType: string
+        physicalType: string
+        description: Name of the source file. Required.
+
+      - id: start_date_prop
+        name: StartDate
+        logicalType: timestamp
+        physicalType: timestamp
+        description: Start of the validity period for the row.   # present on rtmi_individual_stream; confirm on silver table
+
+      - id: end_date_prop
+        name: EndDate
+        logicalType: timestamp
+        physicalType: timestamp
+        description: End of the validity period. Null or future for the active row.   # present on rtmi_individual_stream; confirm on silver table
+
+    quality:
+      # Row count positive
+      - id: rtmi_individual_row_count_positive
+        type: custom
+        engine: sql
+        name: "Row Count Positive"
+        description: >
+          Table must contain at least one row after each load.
+        severity: critical
+        implementation: |
+          SELECT COUNT(*)
+          FROM lh_silver.dbo.rtmi_individual
+          HAVING COUNT(*) = 0
+
+      # Null guard on required columns
+      - id: rtmi_individual_required_fields_not_null
+        type: custom
+        engine: sql
+        name: "Null Check Required Columns"
+        description: >
+          RTMI_MEMBER_NUMBER, File_Date, IngestedTime and FileName must be non-null on every row.
+          Returns count of offending rows, must be 0.
+        severity: critical
+        implementation: |
+          SELECT COUNT(*) AS offending_rows
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE RTMI_MEMBER_NUMBER IS NULL
+             OR File_Date IS NULL
+             OR IngestedTime IS NULL
+             OR FileName IS NULL
+          HAVING COUNT(*) > 0
+
+      # Uniqueness among active rows
+      - id: rtmi_individual_member_number_unique_active
+        type: custom
+        engine: sql
+        name: "Unique Active RTMI Member Number"
+        description: >
+          At most one currently active row per RTMI_MEMBER_NUMBER.
+          Returns member numbers with more than one active row, must be 0.
+        severity: critical
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE EndDate IS NULL OR EndDate > CURRENT_TIMESTAMP()
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 1
+
+      # Validity period ordering
+      - id: rtmi_individual_end_after_start
+        type: custom
+        engine: sql
+        name: "EndDate After StartDate"
+        description: >
+          When EndDate is not null it must be strictly after StartDate.
+        severity: error
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE EndDate IS NOT NULL
+            AND StartDate IS NOT NULL
+            AND EndDate <= StartDate
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # Date of birth range
+      - id: rtmi_individual_dob_valid_range
+        type: custom
+        engine: sql
+        name: "Date Of Birth Valid Range"
+        description: >
+          When present, DATE_OF_BIRTH must not be in the future or before 1900-01-01.
+        severity: error
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE DATE_OF_BIRTH IS NOT NULL
+            AND (DATE_OF_BIRTH > CURRENT_DATE() OR DATE_OF_BIRTH < DATE '1900-01-01')
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # Date of death ordering and range
+      - id: rtmi_individual_dod_valid
+        type: custom
+        engine: sql
+        name: "Date Of Death Valid"
+        description: >
+          When present, DATE_OF_DEATH must not be in the future and must not be before DATE_OF_BIRTH.
+        severity: error
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE DATE_OF_DEATH IS NOT NULL
+            AND (DATE_OF_DEATH > CURRENT_DATE()
+                 OR (DATE_OF_BIRTH IS NOT NULL AND DATE_OF_DEATH < DATE_OF_BIRTH))
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # Future-dated activity dates
+      - id: rtmi_individual_dates_not_in_future
+        type: custom
+        engine: sql
+        name: "Activity Dates Not In Future"
+        description: >
+          OPT_OUT_DATE, ACQUISITION_DATE and ADDRESS_VALIDATION_DATE must not be later than today.
+          Warning until confirmed with the data steward.
+        severity: warning
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE OPT_OUT_DATE > CURRENT_DATE()
+             OR ACQUISITION_DATE > CURRENT_DATE()
+             OR ADDRESS_VALIDATION_DATE > CURRENT_DATE()
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # Latitude and longitude range
+      - id: rtmi_individual_lat_long_valid
+        type: custom
+        engine: sql
+        name: "Latitude Longitude Valid"
+        description: >
+          When present, LATITUDE must convert to a number between -90 and 90 and
+          LONGITUDE to a number between -180 and 180.
+        severity: error
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE (LATITUDE IS NOT NULL AND TRIM(LATITUDE) <> ''
+                 AND (TRY_CAST(LATITUDE AS DOUBLE) IS NULL
+                      OR TRY_CAST(LATITUDE AS DOUBLE) NOT BETWEEN -90 AND 90))
+             OR (LONGITUDE IS NOT NULL AND TRIM(LONGITUDE) <> ''
+                 AND (TRY_CAST(LONGITUDE AS DOUBLE) IS NULL
+                      OR TRY_CAST(LONGITUDE AS DOUBLE) NOT BETWEEN -180 AND 180))
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # ZIP and state format (warning until profiled)
+      - id: rtmi_individual_zip_state_format
+        type: custom
+        engine: sql
+        name: "ZIP And State Format"
+        description: >
+          When present, ZIP_CODE must be 5 digits or ZIP+4, and STATE must be two uppercase letters.
+          Warning until the real data has been profiled. Pair with a NULL guard if these become required.
+        severity: warning
+        implementation: |
+          SELECT RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_individual
+          WHERE (ZIP_CODE IS NOT NULL AND NOT (ZIP_CODE RLIKE '^[0-9]{5}(-?[0-9]{4})?$'))
+             OR (STATE IS NOT NULL AND NOT (STATE RLIKE '^[A-Z]{2}$'))
+          GROUP BY RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+  # ----------------------------------------------------------------------------
+  - id: rtmi_tracking_obj
+    name: rtmi_tracking
+    catalog: lh_silver
+    schema: dbo
+    physicalName: rtmi_tracking
+    physicalType: table
+    businessName: RTMI Member Number Tracking
+    description: History of RTMI member number changes (old number replaced by new number)
+    dataGranularityDescription: One row per old-to-new member number change   # TODO confirm
+
+    properties:
+      - id: old_rtmi_member_number_prop
+        name: OLD_RTMI_MEMBER_NUMBER
+        logicalType: integer
+        physicalType: bigint
+        description: Member number that was replaced. Required.
+        classification: restricted
+
+      - id: new_rtmi_member_number_prop
+        name: NEW_RTMI_MEMBER_NUMBER
+        logicalType: integer
+        physicalType: bigint
+        description: Member number that replaced the old one. Required.
+        classification: restricted
+
+      - id: rtmi_date_inserted_prop
+        name: RTMI_DATE_INSERTED
+        logicalType: timestamp
+        physicalType: timestamp
+        description: Timestamp RTMI recorded the change.
+
+      - id: tracking_file_date_prop
+        name: File_Date
+        logicalType: string
+        physicalType: string
+        description: Business date of the source file. Required.
+
+      - id: tracking_ingested_time_prop
+        name: IngestedTime
+        logicalType: timestamp
+        physicalType: timestamp
+        description: Time the row was ingested. Required.
+
+      - id: tracking_file_name_prop
+        name: FileName
+        logicalType: string
+        physicalType: string
+        description: Name of the source file. Required.
+
+    quality:
+      - id: rtmi_tracking_required_fields_not_null
+        type: custom
+        engine: sql
+        name: "Null Check Tracking Required Columns"
+        description: >
+          OLD_RTMI_MEMBER_NUMBER, NEW_RTMI_MEMBER_NUMBER, File_Date, IngestedTime and FileName
+          must be non-null on every row. Returns count of offending rows, must be 0.
+        severity: critical
+        implementation: |
+          SELECT COUNT(*) AS offending_rows
+          FROM lh_silver.dbo.rtmi_tracking
+          WHERE OLD_RTMI_MEMBER_NUMBER IS NULL
+             OR NEW_RTMI_MEMBER_NUMBER IS NULL
+             OR File_Date IS NULL
+             OR IngestedTime IS NULL
+             OR FileName IS NULL
+          HAVING COUNT(*) > 0
+
+      - id: rtmi_tracking_old_differs_from_new
+        type: custom
+        engine: sql
+        name: "Old Number Differs From New Number"
+        description: >
+          A member number cannot be replaced by itself.
+        severity: error
+        implementation: |
+          SELECT OLD_RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_tracking
+          WHERE OLD_RTMI_MEMBER_NUMBER = NEW_RTMI_MEMBER_NUMBER
+          GROUP BY OLD_RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      - id: rtmi_tracking_no_duplicate_pairs
+        type: custom
+        engine: sql
+        name: "No Duplicate Old-New Pairs"
+        description: >
+          Each (OLD_RTMI_MEMBER_NUMBER, NEW_RTMI_MEMBER_NUMBER) pair must appear once.
+        severity: error
+        implementation: |
+          SELECT OLD_RTMI_MEMBER_NUMBER, NEW_RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_tracking
+          GROUP BY OLD_RTMI_MEMBER_NUMBER, NEW_RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 1
+
+      - id: rtmi_tracking_date_inserted_not_in_future
+        type: custom
+        engine: sql
+        name: "RTMI_DATE_INSERTED Not In Future"
+        description: >
+          RTMI_DATE_INSERTED must not be later than the current timestamp.
+        severity: warning
+        implementation: |
+          SELECT OLD_RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_tracking
+          WHERE RTMI_DATE_INSERTED > CURRENT_TIMESTAMP()
+          GROUP BY OLD_RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+      # Foreign key (not enforced by the platform, so checked here)
+      - id: rtmi_tracking_new_member_exists
+        type: custom
+        engine: sql
+        name: "New Member Number Exists In RTMI Individual"
+        description: >
+          Every NEW_RTMI_MEMBER_NUMBER must exist in rtmi_individual.
+          Returns orphan count, must be 0. Confirm with the steward before promoting past warning.
+        severity: warning
+        implementation: |
+          SELECT t.NEW_RTMI_MEMBER_NUMBER
+          FROM lh_silver.dbo.rtmi_tracking t
+          LEFT JOIN lh_silver.dbo.rtmi_individual i
+            ON t.NEW_RTMI_MEMBER_NUMBER = i.RTMI_MEMBER_NUMBER
+          WHERE t.NEW_RTMI_MEMBER_NUMBER IS NOT NULL
+            AND i.RTMI_MEMBER_NUMBER IS NULL
+          GROUP BY t.NEW_RTMI_MEMBER_NUMBER
+          HAVING COUNT(*) > 0
+
+# ------------------------------------------------------------------------------
+# 3. SUPPORT & COMMUNICATION CHANNELS
+# ------------------------------------------------------------------------------
+support:
+  - id: production_incidents
+    channel: data-products-distribution
+    tool: email
+    scope: announcements
+    url: mailto:ds-dataproducts@trustage.com
+    description: Email distribution list for product incident notifications
+
+# ------------------------------------------------------------------------------
+# 4. TEAM
+# ------------------------------------------------------------------------------
+team:
+  - username: Shon.Eleyan@trustage.com
+    role: Data Steward
+  - username: Sue.Heupel@trustage.com
+    role: Data Steward
+  - username: Christine.McWilliams@trustage.com
+    role: Data Product Owner
+
+# ------------------------------------------------------------------------------
+# 5. ROLES
+# ------------------------------------------------------------------------------
+roles:
+  - role: RTMI_READ
+    access: read
+    description: Downstream data product consumers who need RTMI individual and tracking data.
+
+  - role: RTMI_ETL_WRITE
+    access: write
+    description: ETL service principal only. Used by the pipeline to load and update data.
+
+  - role: RTMI_ADMIN
+    access: admin
+    description: Data engineering platform administrators. Full control for maintenance and troubleshooting.
+
+# ------------------------------------------------------------------------------
+# 6. SERVICE-LEVEL AGREEMENTS (SLAs)
+# ------------------------------------------------------------------------------
+# TODO: add frequency and latency SLA once the RTMI file schedule is confirmed
+
+# ------------------------------------------------------------------------------
+# 7. INFRASTRUCTURE & SERVERS
+# ------------------------------------------------------------------------------
+servers:
+  - server: spark-server
+    type: databricks
+    host: fabric-local
+    catalog: lh_silver
+    schema: dbo
+
+# ------------------------------------------------------------------------------
+# 8. CUSTOM PROPERTIES
+# ------------------------------------------------------------------------------
+customProperties:
+  - property: sourceTables
+    value:
+      - mpi_bronze.rtmi_individual
+      - mpi_bronze.rtmi_tracking
+
+  - property: lifecycle
+    value:
+      changelog:
+        - version: "1.0.0"
+          date: "2026-10-20"
+          description: "Initial draft. Hard rules only for rtmi_individual and rtmi_tracking (PBI 3586168)."
+contractCreatedTs: "2026-10-20T00:00:00Z"
