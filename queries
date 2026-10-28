@@ -1,1 +1,108 @@
+Claude
+Profile bronze · SQL
+/* =====================================================================================
+   Party Core bronze profiling, T-SQL for the lh_bronze SQL analytics endpoint (read only).
+   Run each numbered block as its own query. Paste the results back to Claude.
+   Real values are hidden for text columns other than code columns, and for birth/death dates.
+   ===================================================================================== */
+ 
+/* ---------- BLOCK 1A: generates the per-column profile query for RTMI ----------
+   Run this, then copy the single cell of output, open a NEW query, paste it and run it.
+   For Iris, change @t to 'iris_customer' and run again.                                    */
+DECLARE @t sysname = 'rtmi_individual';
+DECLARE @codes varchar(max) = ',DELTA_TYPE,DECEASED_INDICATOR,GENDER,MARITAL_STATUS,ADDRESS_TYPE,STATE,ADDRESS_CLEANSED_FLAG,ADDRESS_DELIVERABLE_FLAG,NCOA_ACTION,NCOA_DELIVERY,NCOA_MOVE_TYPE,WEALTH_CODE,OPT_OUT_REASON,DOB_SOURCE_INDICATOR,COUNTY,Event_type,';
+SELECT STRING_AGG(CAST(
+  'SELECT ''' + @t + ''' AS source_table, ''' + COLUMN_NAME + ''' AS column_name, ''' + DATA_TYPE + ''' AS data_type, '
+  + 'COUNT(*) AS total_rows, '
+  + 'SUM(CASE WHEN [' + COLUMN_NAME + '] IS NULL THEN 1 ELSE 0 END) AS nulls, '
+  + 'SUM(CASE WHEN LTRIM(RTRIM(CAST([' + COLUMN_NAME + '] AS VARCHAR(8000)))) = '''' THEN 1 ELSE 0 END) AS blanks, '
+  + 'COUNT(DISTINCT [' + COLUMN_NAME + ']) AS distinct_values, '
+  + CASE WHEN (DATA_TYPE IN ('varchar','char','nvarchar','nchar') AND CHARINDEX(',' + COLUMN_NAME + ',', @codes) = 0)
+              OR COLUMN_NAME IN ('DATE_OF_BIRTH','DATE_OF_DEATH','BIRTH_DATE')
+         THEN 'NULL AS min_value, NULL AS max_value, '
+         ELSE 'MIN(CAST([' + COLUMN_NAME + '] AS VARCHAR(100))) AS min_value, MAX(CAST([' + COLUMN_NAME + '] AS VARCHAR(100))) AS max_value, ' END
+  + 'MAX(LEN(CAST([' + COLUMN_NAME + '] AS VARCHAR(8000)))) AS max_len FROM mpi_bronze.' + @t
+  AS VARCHAR(MAX)), ' UNION ALL ') AS paste_this_into_a_new_query
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'mpi_bronze' AND TABLE_NAME = @t;
+ 
+/* ---------- BLOCK 2: distinct values of the code columns (RTMI) ---------- */
+SELECT 'DELTA_TYPE' AS col, DELTA_TYPE AS value, COUNT(*) AS n FROM mpi_bronze.rtmi_individual GROUP BY DELTA_TYPE
+UNION ALL SELECT 'DECEASED_INDICATOR', DECEASED_INDICATOR, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY DECEASED_INDICATOR
+UNION ALL SELECT 'GENDER', GENDER, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY GENDER
+UNION ALL SELECT 'MARITAL_STATUS', MARITAL_STATUS, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY MARITAL_STATUS
+UNION ALL SELECT 'ADDRESS_TYPE', ADDRESS_TYPE, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY ADDRESS_TYPE
+UNION ALL SELECT 'STATE', STATE, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY STATE
+UNION ALL SELECT 'ADDRESS_CLEANSED_FLAG', ADDRESS_CLEANSED_FLAG, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY ADDRESS_CLEANSED_FLAG
+UNION ALL SELECT 'ADDRESS_DELIVERABLE_FLAG', ADDRESS_DELIVERABLE_FLAG, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY ADDRESS_DELIVERABLE_FLAG
+UNION ALL SELECT 'NCOA_ACTION', NCOA_ACTION, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY NCOA_ACTION
+UNION ALL SELECT 'NCOA_DELIVERY', NCOA_DELIVERY, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY NCOA_DELIVERY
+UNION ALL SELECT 'NCOA_MOVE_TYPE', NCOA_MOVE_TYPE, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY NCOA_MOVE_TYPE
+UNION ALL SELECT 'WEALTH_CODE', WEALTH_CODE, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY WEALTH_CODE
+UNION ALL SELECT 'OPT_OUT_REASON', OPT_OUT_REASON, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY OPT_OUT_REASON
+UNION ALL SELECT 'DOB_SOURCE_INDICATOR', DOB_SOURCE_INDICATOR, COUNT(*) FROM mpi_bronze.rtmi_individual GROUP BY DOB_SOURCE_INDICATOR
+ORDER BY col, n DESC;
+ 
+/* BLOCK 2B: Iris code columns */
+SELECT 'Event_type' AS col, Event_type AS value, COUNT(*) AS n FROM mpi_bronze.iris_customer GROUP BY Event_type
+UNION ALL SELECT 'STATE', STATE, COUNT(*) FROM mpi_bronze.iris_customer GROUP BY STATE
+ORDER BY col, n DESC;
+ 
+/* BLOCK 2C: RTMI COUNTY has many values, so only the top 50 */
+SELECT TOP 50 COUNTY, COUNT(*) AS n FROM mpi_bronze.rtmi_individual GROUP BY COUNTY ORDER BY n DESC;
+ 
+/* ---------- BLOCK 3: keys, formats, ranges. Counts only, no real values ---------- */
+SELECT 'RTMI duplicate member numbers within a file' AS check_name,
+       COUNT(*) AS bad_keys, SUM(c) AS bad_rows
+FROM (SELECT File_Date, RTMI_MEMBER_NUMBER, COUNT(*) AS c FROM mpi_bronze.rtmi_individual
+      GROUP BY File_Date, RTMI_MEMBER_NUMBER HAVING COUNT(*) > 1) x
+UNION ALL
+SELECT 'Iris duplicate IRIS_ID within an IngestedTime', COUNT(*), SUM(c)
+FROM (SELECT IRIS_ID, IngestedTime, COUNT(*) AS c FROM mpi_bronze.iris_customer
+      GROUP BY IRIS_ID, IngestedTime HAVING COUNT(*) > 1) y;
+ 
+SELECT 'RTMI null/blank member number' AS check_name, COUNT(*) AS bad_rows FROM mpi_bronze.rtmi_individual WHERE RTMI_MEMBER_NUMBER IS NULL OR LTRIM(RTRIM(CAST(RTMI_MEMBER_NUMBER AS VARCHAR(100)))) = ''
+UNION ALL SELECT 'Iris null/blank IRIS_ID', COUNT(*) FROM mpi_bronze.iris_customer WHERE IRIS_ID IS NULL OR LTRIM(RTRIM(CAST(IRIS_ID AS VARCHAR(100)))) = ''
+/* SSN: raw-SSN shape in the token column, checked first (nine digits, with or without hyphens) */
+UNION ALL SELECT 'RTMI SSN_TOKEN looks like a raw SSN', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE SSN_TOKEN LIKE '[0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9]' OR (LEN(SSN_TOKEN) = 9 AND SSN_TOKEN NOT LIKE '%[^0-9]%')
+UNION ALL SELECT 'Iris SSN_TOKEN looks like a raw SSN', COUNT(*) FROM mpi_bronze.iris_customer
+  WHERE SSN_TOKEN LIKE '[0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9]' OR (LEN(SSN_TOKEN) = 9 AND SSN_TOKEN NOT LIKE '%[^0-9]%')
+UNION ALL SELECT 'Iris SSN_LAST_FOUR not four digits', COUNT(*) FROM mpi_bronze.iris_customer
+  WHERE SSN_LAST_FOUR IS NOT NULL AND (LEN(CAST(SSN_LAST_FOUR AS VARCHAR(20))) <> 4 OR CAST(SSN_LAST_FOUR AS VARCHAR(20)) LIKE '%[^0-9]%')
+UNION ALL SELECT 'Iris SSN_LAST_FOUR present with no SSN_TOKEN', COUNT(*) FROM mpi_bronze.iris_customer WHERE SSN_LAST_FOUR IS NOT NULL AND SSN_TOKEN IS NULL
+/* ZIP: five digits, or five plus four with optional hyphen */
+UNION ALL SELECT 'RTMI ZIP not 5 or 5+4', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE ZIP_CODE IS NOT NULL AND NOT (ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9]' OR ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]')
+UNION ALL SELECT 'Iris ZIP not 5 or 5+4', COUNT(*) FROM mpi_bronze.iris_customer
+  WHERE ZIP_CODE IS NOT NULL AND NOT (ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9]' OR ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR ZIP_CODE LIKE '[0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]')
+UNION ALL SELECT 'RTMI latitude non-numeric or outside +-90', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE LATITUDE IS NOT NULL AND (TRY_CAST(LATITUDE AS FLOAT) IS NULL OR ABS(TRY_CAST(LATITUDE AS FLOAT)) > 90)
+UNION ALL SELECT 'RTMI longitude non-numeric or outside +-180', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE LONGITUDE IS NOT NULL AND (TRY_CAST(LONGITUDE AS FLOAT) IS NULL OR ABS(TRY_CAST(LONGITUDE AS FLOAT)) > 180)
+UNION ALL SELECT 'RTMI DOB before 1900 or in the future', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE TRY_CAST(DATE_OF_BIRTH AS DATE) < '1900-01-01' OR TRY_CAST(DATE_OF_BIRTH AS DATE) > CAST(GETDATE() AS DATE)
+UNION ALL SELECT 'RTMI date of death before DOB', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE TRY_CAST(DATE_OF_DEATH AS DATE) < TRY_CAST(DATE_OF_BIRTH AS DATE)
+UNION ALL SELECT 'RTMI date of death in the future', COUNT(*) FROM mpi_bronze.rtmi_individual
+  WHERE TRY_CAST(DATE_OF_DEATH AS DATE) > CAST(GETDATE() AS DATE)
+UNION ALL SELECT 'Iris BIRTH_DATE before 1900 or in the future', COUNT(*) FROM mpi_bronze.iris_customer
+  WHERE TRY_CAST(BIRTH_DATE AS DATE) < '1900-01-01' OR TRY_CAST(BIRTH_DATE AS DATE) > CAST(GETDATE() AS DATE)
+UNION ALL SELECT 'Iris StartDate non-null', COUNT(StartDate) FROM mpi_bronze.iris_customer
+UNION ALL SELECT 'Iris EndDate non-null', COUNT(EndDate) FROM mpi_bronze.iris_customer
+UNION ALL SELECT 'Iris EndDate before StartDate', COUNT(*) FROM mpi_bronze.iris_customer WHERE EndDate < StartDate
+UNION ALL SELECT 'RTMI ORIGIN_TIMESTAMP null', COUNT(*) FROM mpi_bronze.rtmi_individual WHERE ORIGIN_TIMESTAMP IS NULL
+UNION ALL SELECT 'RTMI ORIGIN_TIMESTAMP in the future', COUNT(*) FROM mpi_bronze.rtmi_individual WHERE ORIGIN_TIMESTAMP > GETDATE();
+ 
+/* BLOCK 3B: telephone digit counts. Home, then business. Counts only. */
+SELECT 'HOME' AS phone, LEN(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HOME_TELEPHONE_NUMBER,'-',''),' ',''),'(',''),')',''),'.','')) AS len_without_formatting, COUNT(*) AS n
+FROM mpi_bronze.rtmi_individual WHERE HOME_TELEPHONE_NUMBER IS NOT NULL
+GROUP BY LEN(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HOME_TELEPHONE_NUMBER,'-',''),' ',''),'(',''),')',''),'.',''))
+UNION ALL
+SELECT 'BUSINESS', LEN(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(BUSINESS_TELEPHONE_NUMBER,'-',''),' ',''),'(',''),')',''),'.','')), COUNT(*)
+FROM mpi_bronze.rtmi_individual WHERE BUSINESS_TELEPHONE_NUMBER IS NOT NULL
+GROUP BY LEN(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(BUSINESS_TELEPHONE_NUMBER,'-',''),' ',''),'(',''),')',''),'.',''))
+ORDER BY phone, len_without_formatting;
+ 
+Claude finished the response
 
