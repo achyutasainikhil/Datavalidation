@@ -1,7 +1,17 @@
-1. The Party Core silver data contract (ODCS v3.1.0) is extended with executable data quality rules for the RTMI and Iris loads. Contract version 0.5.0 adds 116 rules to the existing 281 (397 in total).
-2. The rules cover uniqueness, foreign key integrity (orphan checks), hash key recomputation, blank and null handling, accepted value sets for code columns, format checks (ZIP, latitude, longitude, member number, SSN token shape), plausible date ranges, and cross-column consistency.
-3. Scope follows Christine McWilliams' direction (14 Oct): hard data quality rules, not business rules.
-4. Rules follow the contract's existing convention: id, name, description, severity, dimension, and SQL that returns offending rows (zero rows = pass). All new rules are severity "warning" pending decisions D26 and D65.
-5. Rules were designed from profiling of the bronze tables (rtmi_individual and iris_customer) in Fabric. Findings are documented in the Party Core DQ Work Log.
-6. Contract changelog (v0.5.0) and open decisions D71 to D74 are recorded in the contract.
-7. Open questions for the data product owner and the vault design owner are documented, and the remaining work is tracked in a follow-on PBI.
+Title: Party Core Data Quality Rules: Review New Rules
+
+As a Data Product Team Member, I want to review the new Party Core data quality rules and get answers to the open design questions from Bob McIlvride, so that the contract rules are correct, the load design matches the data, and the rules can be tested and enforced.
+
+Context: PBI 3586168 added 116 warning-level data quality rules to the Party Core silver contract (v0.5.0). Profiling of the RTMI and Iris bronze tables raised questions that only the contract owner can answer. Until they are answered, some rules cannot be finalised and the load design may be wrong for some data.
+
+
+1. A review session is held with Bob McIlvride covering the 116 new rules in contract v0.5.0 and the Party Core DQ Work Log.
+2. Decision D71 is answered: Iris sends two address rows for one customer in one delivery with no address type (20,705 cases). The agreed key or selection rule is recorded in the contract.
+3. Decision D72 is answered: whether the RTMI loads read only open rows (EndDate 9999 or later). Bronze holds 705,704 closed rows beside 78,683,030 open rows.
+4. Decision D73 is answered: what the 4,202,506 thirteen-digit RTMI member numbers are, and whether they can collide with Iris customer identifiers.
+5. Decision D74 is answered: the SSN token format and range, including why 17 Iris values start with 1, 2, 5 or 6.
+6. Severity decisions D26 and D65 are answered: which rules stay warning and which become critical.
+7. Contract text errors are confirmed: StartDate described as null on all Iris rows (it is populated), ADDRESS_VALIDATION_DATE empty on every RTMI row, and SUFFIX_NAME holding 198 distinct values in a 5-character column.
+8. Objects named in the contract but missing from it are listed, with a plan to add them.
+9. Dev silver tables and access for running the new rules are agreed, including Contributor access to lh_bronze.
+10. Answers are recorded in the Questions tab of the work log and the contract is updated or flagged for update.
