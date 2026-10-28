@@ -88,3 +88,16 @@ FROM (
   GROUP BY IRIS_ID, IngestedTime
   HAVING COUNT(*) = 2
 ) x;
+
+
+SELECT
+  'SELECT COUNT(*) AS pairs, '
+  + STRING_AGG(CAST('SUM(CASE WHEN ' + QUOTENAME('d_' + COLUMN_NAME) + ' > 1 THEN 1 ELSE 0 END) AS ' + QUOTENAME('differ_' + COLUMN_NAME) AS VARCHAR(MAX)), ', ')
+  + ' FROM (SELECT IRIS_ID, IngestedTime, '
+  + STRING_AGG(CAST('COUNT(DISTINCT ISNULL(CAST(' + QUOTENAME(COLUMN_NAME) + ' AS VARCHAR(4000)), ''<null>'')) AS ' + QUOTENAME('d_' + COLUMN_NAME) AS VARCHAR(MAX)), ', ')
+  + ' FROM mpi_bronze.iris_customer GROUP BY IRIS_ID, IngestedTime HAVING COUNT(*) = 2) x;'
+  AS query_to_run
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'mpi_bronze'
+  AND TABLE_NAME   = 'iris_customer'
+  AND COLUMN_NAME NOT IN ('IRIS_ID', 'IngestedTime');
