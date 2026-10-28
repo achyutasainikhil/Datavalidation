@@ -101,3 +101,34 @@ FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'mpi_bronze'
   AND TABLE_NAME   = 'iris_customer'
   AND COLUMN_NAME NOT IN ('IRIS_ID', 'IngestedTime');
+
+
+/* 1a. Member number length distribution */
+SELECT LEN(CAST(RTMI_MEMBER_NUMBER AS VARCHAR(50))) AS member_number_length,
+       COUNT(*) AS n
+FROM mpi_bronze.rtmi_individual
+GROUP BY LEN(CAST(RTMI_MEMBER_NUMBER AS VARCHAR(50)))
+ORDER BY member_number_length;
+
+/* 1b. Open versus closed rows (open = EndDate of 9999 or later) */
+SELECT CASE WHEN EndDate >= '9999-01-01' THEN 'open' ELSE 'closed' END AS row_status,
+       COUNT(*)                          AS n_rows,
+       COUNT(DISTINCT RTMI_MEMBER_NUMBER) AS n_members
+FROM mpi_bronze.rtmi_individual
+GROUP BY CASE WHEN EndDate >= '9999-01-01' THEN 'open' ELSE 'closed' END;
+
+SELECT DECEASED_INDICATOR,
+       CASE WHEN NULLIF(TRIM(CAST(DATE_OF_DEATH AS VARCHAR(50))), '') IS NULL
+            THEN 'no death date' ELSE 'has death date' END AS death_date_status,
+       COUNT(*) AS n
+FROM mpi_bronze.rtmi_individual
+GROUP BY DECEASED_INDICATOR,
+         CASE WHEN NULLIF(TRIM(CAST(DATE_OF_DEATH AS VARCHAR(50))), '') IS NULL
+              THEN 'no death date' ELSE 'has death date' END
+ORDER BY DECEASED_INDICATOR, death_date_status;
+
+SELECT LEN(NULLIF(TRIM(ZIP_CODE), '')) AS zip_length,
+       COUNT(*) AS n
+FROM mpi_bronze.iris_customer
+GROUP BY LEN(NULLIF(TRIM(ZIP_CODE), ''))
+ORDER BY zip_length;
