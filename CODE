@@ -18,3 +18,26 @@ SELECT STRING_AGG(CAST(
   AS VARCHAR(MAX)), ' UNION ALL ') AS paste_this_into_a_new_query
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'mpi_bronze' AND TABLE_NAME = @t;
+
+
+
+SELECT 'RTMI' AS src, COUNT(*) AS nine_digit_rows,
+  SUM(CASE WHEN LEFT(SSN_TOKEN,3) IN ('000','666') OR LEFT(SSN_TOKEN,1)='9'
+            OR SUBSTRING(SSN_TOKEN,4,2)='00' OR RIGHT(SSN_TOKEN,4)='0000' THEN 1 ELSE 0 END) AS impossible_ssn_pattern
+FROM mpi_bronze.rtmi_individual WHERE LEN(SSN_TOKEN)=9 AND SSN_TOKEN NOT LIKE '%[^0-9]%'
+UNION ALL
+SELECT 'IRIS', COUNT(*),
+  SUM(CASE WHEN LEFT(SSN_TOKEN,3) IN ('000','666') OR LEFT(SSN_TOKEN,1)='9'
+            OR SUBSTRING(SSN_TOKEN,4,2)='00' OR RIGHT(SSN_TOKEN,4)='0000' THEN 1 ELSE 0 END)
+FROM mpi_bronze.iris_customer WHERE LEN(SSN_TOKEN)=9 AND SSN_TOKEN NOT LIKE '%[^0-9]%';
+
+
+SELECT n_open_rows, COUNT(*) AS id_delivery_pairs
+FROM (
+  SELECT IRIS_ID, IngestedTime,
+         SUM(CASE WHEN EndDate >= '9999-01-01' THEN 1 ELSE 0 END) AS n_open_rows
+  FROM mpi_bronze.iris_customer
+  GROUP BY IRIS_ID, IngestedTime
+  HAVING COUNT(*) > 1
+) x
+GROUP BY n_open_rows ORDER BY n_open_rows;
