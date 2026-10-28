@@ -52,3 +52,39 @@ FROM (
   HAVING COUNT(*) > 1
 ) x
 GROUP BY n_open_rows ORDER BY n_open_rows;
+
+
+
+/* IRIS duplicate pairs: what separates the two rows? IDs and event columns only. */
+WITH pairs AS (
+  SELECT TOP 5 IRIS_ID, IngestedTime
+  FROM mpi_bronze.iris_customer
+  GROUP BY IRIS_ID, IngestedTime
+  HAVING COUNT(*) = 2
+)
+SELECT c.IRIS_ID, c.IngestedTime, c.Event_type, c.Event_id, c.StartDate, c.EndDate
+FROM mpi_bronze.iris_customer AS c
+JOIN pairs AS p
+  ON p.IRIS_ID = c.IRIS_ID AND p.IngestedTime = c.IngestedTime
+ORDER BY c.IRIS_ID, c.IngestedTime, c.StartDate;
+
+
+
+
+/* Across all two-row duplicate groups: how many differ on each column? */
+SELECT
+  COUNT(*)                                        AS pairs,
+  SUM(CASE WHEN n_event_type > 1 THEN 1 ELSE 0 END) AS differ_event_type,
+  SUM(CASE WHEN n_event_id   > 1 THEN 1 ELSE 0 END) AS differ_event_id,
+  SUM(CASE WHEN n_start      > 1 THEN 1 ELSE 0 END) AS differ_startdate,
+  SUM(CASE WHEN n_end        > 1 THEN 1 ELSE 0 END) AS differ_enddate
+FROM (
+  SELECT IRIS_ID, IngestedTime,
+         COUNT(DISTINCT Event_type) AS n_event_type,
+         COUNT(DISTINCT Event_id)   AS n_event_id,
+         COUNT(DISTINCT StartDate)  AS n_start,
+         COUNT(DISTINCT EndDate)    AS n_end
+  FROM mpi_bronze.iris_customer
+  GROUP BY IRIS_ID, IngestedTime
+  HAVING COUNT(*) = 2
+) x;
