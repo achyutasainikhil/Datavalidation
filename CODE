@@ -32,6 +32,17 @@ SELECT 'IRIS', COUNT(*),
 FROM mpi_bronze.iris_customer WHERE LEN(SSN_TOKEN)=9 AND SSN_TOKEN NOT LIKE '%[^0-9]%';
 
 
+
+SELECT 'RTMI' AS src, LEFT(SSN_TOKEN,1) AS first_digit, COUNT(*) AS n
+FROM mpi_bronze.rtmi_individual WHERE LEN(SSN_TOKEN)=9 AND SSN_TOKEN NOT LIKE '%[^0-9]%'
+GROUP BY LEFT(SSN_TOKEN,1)
+UNION ALL
+SELECT 'IRIS', LEFT(SSN_TOKEN,1), COUNT(*)
+FROM mpi_bronze.iris_customer WHERE LEN(SSN_TOKEN)=9 AND SSN_TOKEN NOT LIKE '%[^0-9]%'
+GROUP BY LEFT(SSN_TOKEN,1)
+ORDER BY src, first_digit;
+
+
 SELECT n_open_rows, COUNT(*) AS id_delivery_pairs
 FROM (
   SELECT IRIS_ID, IngestedTime,
