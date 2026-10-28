@@ -1,0 +1,20 @@
+DECLARE @t sysname = 'iris_customer';
+DECLARE @codes varchar(max) = ',DELTA_TYPE,DECEASED_INDICATOR,GENDER,MARITAL_STATUS,ADDRESS_TYPE,STATE,ADDRESS_CLEANSED_FLAG,ADDRESS_DELIVERABLE_FLAG,NCOA_ACTION,NCOA_DELIVERY,NCOA_MOVE_TYPE,WEALTH_CODE,OPT_OUT_REASON,DOB_SOURCE_INDICATOR,COUNTY,Event_type,';
+SELECT STRING_AGG(CAST(
+  'SELECT ''' + @t + ''' AS source_table, ''' + COLUMN_NAME + ''' AS column_name, ''' + DATA_TYPE + ''' AS data_type, '
+  + 'COUNT(*) AS total_rows, '
+  + 'SUM(CASE WHEN [' + COLUMN_NAME + '] IS NULL THEN 1 ELSE 0 END) AS nulls, '
+  + 'SUM(CASE WHEN LTRIM(RTRIM(CAST([' + COLUMN_NAME + '] AS VARCHAR(8000)))) = '''' THEN 1 ELSE 0 END) AS blanks, '
+  + 'COUNT(DISTINCT [' + COLUMN_NAME + ']) AS distinct_values, '
+  + CASE
+      WHEN (DATA_TYPE IN ('varchar','char','nvarchar','nchar') AND CHARINDEX(',' + COLUMN_NAME + ',', @codes) = 0)
+           OR COLUMN_NAME IN ('DATE_OF_BIRTH','DATE_OF_DEATH','BIRTH_DATE')
+        THEN 'NULL AS min_value, NULL AS max_value, '
+      WHEN DATA_TYPE IN ('bigint','int','smallint','tinyint','decimal','numeric','float','real')
+        THEN 'CAST(MIN([' + COLUMN_NAME + ']) AS VARCHAR(100)) AS min_value, CAST(MAX([' + COLUMN_NAME + ']) AS VARCHAR(100)) AS max_value, '
+      ELSE 'MIN(CAST([' + COLUMN_NAME + '] AS VARCHAR(100))) AS min_value, MAX(CAST([' + COLUMN_NAME + '] AS VARCHAR(100))) AS max_value, '
+    END
+  + 'MAX(LEN(CAST([' + COLUMN_NAME + '] AS VARCHAR(8000)))) AS max_len FROM mpi_bronze.' + @t
+  AS VARCHAR(MAX)), ' UNION ALL ') AS paste_this_into_a_new_query
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'mpi_bronze' AND TABLE_NAME = @t;
