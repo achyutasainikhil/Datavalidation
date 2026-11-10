@@ -1,17 +1,69 @@
-Title: Party Core Data Quality Rules: Review New Rules
+# Title
+Design QE Test Cases for Party Domain Data Quality Rules
 
-As a Data Product Team Member, I want to review the new Party Core data quality rules and get answers to the open design questions from Bob McIlvride, so that the contract rules are correct, the load design matches the data, and the rules can be tested and enforced.
+## Description
 
-Context: PBI 3586168 added 116 warning-level data quality rules to the Party Core silver contract (v0.5.0). Profiling of the RTMI and Iris bronze tables raised questions that only the contract owner can answer. Until they are answered, some rules cannot be finalised and the load design may be wrong for some data.
+As a Quality Engineer, I want to design comprehensive test cases for the Party Domain based on the Data Contracts, Party Data Model, data profiling results, and existing EXL Data Quality Rules document, so that data quality, integrity, completeness, and reliability of Party data can be validated across the relevant data product layers before development is completed.
 
+The test case design will focus exclusively on the Party Domain, covering applicable data quality rules and critical business attributes across the Bronze, Silver, and Gold layers.
 
-1. A review session is held with Bob McIlvride covering the 116 new rules in contract v0.5.0 and the Party Core DQ Work Log.
-2. Decision D71 is answered: Iris sends two address rows for one customer in one delivery with no address type (20,705 cases). The agreed key or selection rule is recorded in the contract.
-3. Decision D72 is answered: whether the RTMI loads read only open rows (EndDate 9999 or later). Bronze holds 705,704 closed rows beside 78,683,030 open rows.
-4. Decision D73 is answered: what the 4,202,506 thirteen-digit RTMI member numbers are, and whether they can collide with Iris customer identifiers.
-5. Decision D74 is answered: the SSN token format and range, including why 17 Iris values start with 1, 2, 5 or 6.
-6. Severity decisions D26 and D65 are answered: which rules stay warning and which become critical.
-7. Contract text errors are confirmed: StartDate described as null on all Iris rows (it is populated), ADDRESS_VALIDATION_DATE empty on every RTMI row, and SUFFIX_NAME holding 198 distinct values in a 5-character column.
-8. Objects named in the contract but missing from it are listed, with a plan to add them.
-9. Dev silver tables and access for running the new rules are agreed, including Contributor access to lh_bronze.
-10. Answers are recorded in the Questions tab of the work log and the contract is updated or flagged for update.
+The existing EXL Data Quality Rules document will be used as a baseline to identify engineering-relevant rules. Additional QE scenarios will be identified based on the Party data model, business keys, data contract expectations, data profiling, and potential data pipeline failure scenarios.
+
+QE testing will provide broader validation coverage beyond developer-level unit tests and contract rule implementation.
+
+## Scope of Work
+
+**1. Review Party Domain Data Contracts and Data Model**
+- Review the Party Domain Data Contract and associated data model.
+- Identify Party-related source and target tables.
+- Identify primary keys, business keys, and critical data attributes.
+- Understand data transformations and movement across Bronze, Silver, and Gold layers.
+
+**2. Review Existing Data Quality Rules**
+- Review the EXL-provided Data Quality Rules document.
+- Identify rules applicable to Party Domain engineering and QE testing.
+- Map relevant rules to Party tables, columns, and contract expectations.
+- Identify missing rules and additional validation scenarios.
+
+**3. Design Party Domain QE Test Cases**
+- Develop test cases for applicable Party Domain data quality rules across relevant layers.
+- Validate primary key and business key uniqueness.
+- Validate NULL, missing, and duplicate Party records.
+- Validate schema, data types, and mandatory attributes.
+- Validate data completeness and consistency.
+- Validate source-to-target data integrity and transformation accuracy.
+- Validate invalid-record handling, including quarantine and exception scenarios.
+- Include positive, negative, boundary, and edge-case scenarios.
+- Identify additional data volume and performance testing scenarios where applicable.
+
+**4. Test Coverage and Traceability**
+- Map each test case to the corresponding Party Data Contract rule, table, and column.
+- Prioritize critical Party business attributes and keys.
+- Identify gaps between existing contract rules and QE test coverage.
+- Document test cases using the agreed QE test case template.
+
+## Acceptance Criteria
+
+1. Party Domain Data Contracts and data models are reviewed.
+2. Party-related source and target tables, primary keys, business keys, and critical attributes are identified.
+3. Applicable engineering-related rules from the EXL document are identified.
+4. QE test cases are documented for applicable Party Domain rules across relevant Bronze, Silver, and Gold layers.
+5. Test scenarios cover uniqueness, NULL handling, duplicate detection, schema validation, completeness, and data integrity.
+6. Positive, negative, boundary, and exception-handling scenarios are included.
+7. Invalid Party records and quarantine handling are covered.
+8. Additional QE scenarios beyond developer-level unit tests are identified.
+9. Test cases are traceable to Party Domain data contract rules, tables, and columns wherever applicable.
+10. Test cases are reviewed and documented in the agreed QE format.
+
+## Dependencies
+- Party Domain Data Contracts from Bob.
+- Party Domain Data Model and source-to-target mappings.
+- EXL Data Quality Rules document.
+- Party Domain data profiling results.
+- Existing QE test case template and testing standards.
+
+## Deliverables
+- Party Domain Data Quality Rule Mapping.
+- Party Domain QE Test Case Document.
+- Test Coverage and Gap Analysis.
+- Additional QE Validation Scenarios.
