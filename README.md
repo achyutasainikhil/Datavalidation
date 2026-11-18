@@ -1,46 +1,36 @@
-Design QE Test Cases for Party Domain: Silver to Gold, Data Manager Consultation, Traceability and Dev Review
+PBI 1: Party Domain QE Discovery and Data Quality Rule Mapping
 
-Suggested effort: 3, since the consultation adds work.
+Suggested effort: 2. This is the one to commit to this iteration.
 
 Description
-As a Quality Engineer, I want to design QE test cases for the Party Domain Silver to Gold layer, consult the Party data managers for business input, finalize traceability and review the scenarios with the dev team, so that Party data can be validated end to end across all layers before development is completed.
+As a Quality Engineer, I want to review the Party Domain Data Contracts, data model and existing EXL Data Quality Rules document, so that the engineering-relevant rules and the QE test coverage baseline are identified before test case design begins.
 
 Scope of work
 
-Validate data integrity, consistency and transformation accuracy from Silver to Gold.
+Review the Party Domain Data Contract and associated data model.
 
-Validate business rules and critical business attributes.
+Identify Party-related source and target tables, primary keys, business keys and critical attributes.
 
-Validate cross-table consistency across the Party data products.
+Understand data movement and transformations across Bronze, Silver and Gold.
 
-Meet with the Party data managers to understand the business rules and critical attributes, and get input on the test cases and scenarios. Agree how QE will work with them going forward.
+Review the EXL Data Quality Rules document and identify the rules applicable to Party Domain engineering and QE testing.
 
-Identify volume and performance test scenarios where applicable.
+Map each relevant rule to Party tables, columns and contract expectations.
 
-Finalize the coverage and gap analysis across all layers.
-
-Review the QE scenarios with the dev team in colo.
+Identify rules missing from the contract and additional QE scenarios.
 
 Acceptance criteria
 
-QE test cases are documented for applicable Party Domain rules at the Silver to Gold layer.
+Party Domain Data Contracts and data models are reviewed.
 
-Scenarios cover data integrity, completeness, consistency and business rules.
+Party source and target tables, primary keys, business keys and critical attributes are identified.
 
-Positive, negative, boundary and exception scenarios are included.
+Applicable engineering-related rules from the EXL document are identified.
 
-Party data managers are identified and a consultation meeting is held on the business rules and test scenarios.
+Each applicable rule is mapped to a Party table, column and contract rule where one exists.
 
-Business input from the data managers is captured and reflected in the test cases, and the way of working with them is agreed.
+Gaps between contract rules and the EXL document are documented and shared with Bob.
 
-Test cases are traceable to Party Domain data contract rules, tables and columns where applicable.
+Dependencies: Party Domain Data Contracts (Bob); Party Data Model and source-to-target mappings; EXL Data Quality Rules document; data profiling results.
 
-A test coverage and gap analysis across Bronze, Silver and Gold is documented.
-
-Additional QE scenarios beyond developer unit tests are identified, including any performance scenarios.
-
-QE scenarios are reviewed with the dev team in colo and feedback is captured.
-
-Dependencies: PBIs 1 and 2; names and availability of the Party data managers (Christine said she would give you the names); Party Domain Data Model and source-to-target mappings; dev team availability for the review.
-
-Deliverables: Silver to Gold QE Test Case Document; notes from the data manager consultation; Test Coverage and Gap Analysis; additional QE validation scenarios.
+Deliverables: Party Domain Data Quality Rule Mapping; list of gaps and additional QE scenarios.
