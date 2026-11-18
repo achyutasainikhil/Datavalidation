@@ -17,11 +17,17 @@ Include positive, negative, boundary and edge-case scenarios.
 Acceptance criteria
 
 QE test cases are documented for applicable Party Domain rules at the Bronze to Silver layer.
+
 Scenarios cover uniqueness, NULL handling, duplicate detection, schema validation and completeness.
+
 Positive, negative, boundary and exception scenarios are included.
+
 Invalid Party records and quarantine handling are covered, including that good records are not quarantined and bad records do not reach Silver.
+
 Each test case is traceable to a Party Domain data contract rule, table and column where applicable.
+
 Additional scenarios beyond developer unit tests are identified and marked separately.
+
 Test cases are documented in a QE test case format agreed with the team.
 
 Dependencies: PBI 1 (rule mapping); Party Domain Data Contract; data profiling results; QE test case template or format.
